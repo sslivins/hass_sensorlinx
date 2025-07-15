@@ -18,5 +18,15 @@
     "abort": {
       "already_configured": "Device is already configured"
     }
+  },
+  "entity": {
+    "switch": {
+      "permanent_heat_demand": {
+        "name": "Permanent Heat Demand"
+      },
+      "permanent_cool_demand": {
+        "name": "Permanent Cool Demand"
+      }
+    }
   }
 }

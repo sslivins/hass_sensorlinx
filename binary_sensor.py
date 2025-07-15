@@ -21,16 +21,6 @@ _LOGGER = logging.getLogger(__name__)
 
 BINARY_SENSOR_DESCRIPTIONS: tuple[BinarySensorEntityDescription, ...] = (
     BinarySensorEntityDescription(
-        key="permanent_heat_demand",
-        name="Permanent Heat Demand",
-        device_class=BinarySensorDeviceClass.HEAT,
-    ),
-    BinarySensorEntityDescription(
-        key="permanent_cool_demand", 
-        name="Permanent Cool Demand",
-        device_class=BinarySensorDeviceClass.COLD,
-    ),
-    BinarySensorEntityDescription(
         key="warm_weather_shutdown",
         name="Warm Weather Shutdown",
         device_class=BinarySensorDeviceClass.PROBLEM,
@@ -104,13 +94,14 @@ class SensorLinxBinarySensor(CoordinatorEntity, BinarySensorEntity):
         self._attr_unique_id = f"{device_id}_{description.key}"
         self._attr_name = f"{device.get('name', device_id)} {description.name}"
         
-        # Device info
+        # Device info - use extracted parameters from coordinator
+        parameters = device.get("parameters", {})
         self._attr_device_info = {
             "identifiers": {(DOMAIN, device_id)},
             "name": device.get("name", device_id),
             "manufacturer": "SensorLinx",
-            "model": device.get("deviceType", "Unknown"),
-            "sw_version": device.get("firmware_version"),
+            "model": parameters.get("device_type", device.get("deviceType", "Unknown")),
+            "sw_version": parameters.get("firmware_version", device.get("firmVer")),
         }
 
     @property
@@ -130,10 +121,7 @@ class SensorLinxBinarySensor(CoordinatorEntity, BinarySensorEntity):
             return None
         
         # Handle different parameter types
-        if self.entity_description.key in ["permanent_heat_demand", "permanent_cool_demand"]:
-            # These are boolean values from the API
-            return bool(value)
-        elif self.entity_description.key in ["warm_weather_shutdown", "cold_weather_shutdown"]:
+        if self.entity_description.key in ["warm_weather_shutdown", "cold_weather_shutdown"]:
             # These are temperature values - consider "on" if not disabled (32°F means disabled)
             return value != 32 if isinstance(value, (int, float)) else False
         

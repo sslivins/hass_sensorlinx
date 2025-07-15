@@ -80,13 +80,14 @@ class SensorLinxClimate(CoordinatorEntity, ClimateEntity):
             HVACMode.AUTO,
         ]
         
-        # Device info
+        # Device info - use extracted parameters from coordinator
+        parameters = device.get("parameters", {})
         self._attr_device_info = {
             "identifiers": {(DOMAIN, device_id)},
             "name": device.get("name", device_id),
             "manufacturer": "SensorLinx",
-            "model": device.get("type", "Unknown"),
-            "sw_version": device.get("firmware_version"),
+            "model": parameters.get("device_type", device.get("type", "Unknown")),
+            "sw_version": parameters.get("firmware_version", device.get("firmware_version")),
         }
 
     @property

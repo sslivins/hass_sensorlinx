@@ -92,16 +92,6 @@ SENSOR_DESCRIPTIONS: tuple[SensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
     ),
-    SensorEntityDescription(
-        key="firmware_version",
-        name="Firmware Version",
-        device_class=SensorDeviceClass.ENUM,
-    ),
-    SensorEntityDescription(
-        key="device_type",
-        name="Device Type",
-        device_class=SensorDeviceClass.ENUM,
-    ),
 )
 
 
@@ -166,13 +156,14 @@ class SensorLinxSensor(CoordinatorEntity, SensorEntity):
         self._attr_unique_id = f"{device_id}_{description.key}"
         self._attr_name = f"{device.get('name', device_id)} {description.name}"
         
-        # Device info
+        # Device info - use extracted parameters from coordinator
+        parameters = device.get("parameters", {})
         self._attr_device_info = {
             "identifiers": {(DOMAIN, device_id)},
             "name": device.get("name", device_id),
             "manufacturer": "SensorLinx",
-            "model": device.get("type", "Unknown"),
-            "sw_version": device.get("firmware_version"),
+            "model": parameters.get("device_type", device.get("deviceType", "Unknown")),
+            "sw_version": parameters.get("firmware_version", device.get("firmVer")),
         }
 
     @property
