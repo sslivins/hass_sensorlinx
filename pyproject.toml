@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hass-sensorlinx"
+version = "1.0.0"
+description = "Home Assistant custom integration for SensorLinx devices"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "Your Name", email = "your.email@example.com"}
+]
+keywords = ["homeassistant", "sensorlinx", "integration", "iot"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Home Automation",
+]
+requires-python = ">=3.11"
+dependencies = [
+    "pysensorlinx>=0.1.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-homeassistant-custom-component>=0.13.0",
+    "homeassistant>=2023.1.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/your_username/hass_sensorlinx"
+Repository = "https://github.com/your_username/hass_sensorlinx"
+Issues = "https://github.com/your_username/hass_sensorlinx/issues"
+
+[tool.setuptools.packages.find]
+include = ["sensorlinx*"]
+exclude = ["tests*"]
