@@ -109,7 +109,7 @@ class SensorLinxBinarySensor(CoordinatorEntity, BinarySensorEntity):
             "identifiers": {(DOMAIN, device_id)},
             "name": device.get("name", device_id),
             "manufacturer": "SensorLinx",
-            "model": device.get("type", "Unknown"),
+            "model": device.get("deviceType", "Unknown"),
             "sw_version": device.get("firmware_version"),
         }
 
