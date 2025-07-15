@@ -100,7 +100,9 @@ class SensorLinxClimate(CoordinatorEntity, ClimateEntity):
             return None
             
         parameters = device.get("parameters", {})
-        return parameters.get("current_temperature")
+        # Try to get hot tank temperature first, then cold tank
+        temp = parameters.get("temperature_hot_tank") or parameters.get("temperature_cold_tank")
+        return temp
 
     @property
     def target_temperature(self) -> float | None:
@@ -113,7 +115,15 @@ class SensorLinxClimate(CoordinatorEntity, ClimateEntity):
             return None
             
         parameters = device.get("parameters", {})
-        return parameters.get("target_temperature")
+        # Get target temperature based on current mode
+        hvac_mode = self.hvac_mode
+        if hvac_mode == HVACMode.HEAT:
+            return parameters.get("target_temperature_hot_tank")
+        elif hvac_mode == HVACMode.COOL:
+            return parameters.get("target_temperature_cold_tank")
+        else:
+            # Auto mode - return hot tank target as default
+            return parameters.get("target_temperature_hot_tank")
 
     @property
     def hvac_mode(self) -> HVACMode | None:
@@ -137,7 +147,7 @@ class SensorLinxClimate(CoordinatorEntity, ClimateEntity):
         elif mode == "auto":
             return HVACMode.AUTO
         
-        return HVACMode.OFF
+        return HVACMode.AUTO  # Default to auto
 
     @property
     def hvac_action(self) -> HVACAction | None:
@@ -151,9 +161,10 @@ class SensorLinxClimate(CoordinatorEntity, ClimateEntity):
             
         parameters = device.get("parameters", {})
         
-        if parameters.get("heating", False):
+        # Check demand states
+        if parameters.get("permanent_heat_demand", False):
             return HVACAction.HEATING
-        elif parameters.get("cooling", False):
+        elif parameters.get("permanent_cool_demand", False):
             return HVACAction.COOLING
         elif self.hvac_mode != HVACMode.OFF:
             return HVACAction.IDLE
@@ -167,11 +178,45 @@ class SensorLinxClimate(CoordinatorEntity, ClimateEntity):
             return
             
         try:
-            await self.coordinator.sensorlinx.set_device_parameter(
-                self._device_id,
-                "target_temperature",
-                temperature
-            )
+            # Get building info from coordinator data
+            if not self.coordinator.data or "devices" not in self.coordinator.data:
+                _LOGGER.error("No coordinator data available")
+                return
+                
+            device = self.coordinator.data["devices"].get(self._device_id)
+            if not device:
+                _LOGGER.error("Device %s not found in coordinator data", self._device_id)
+                return
+            
+            # Find the building ID for this device
+            building_id = None
+            for building in self.coordinator.data.get("buildings", []):
+                # You'll need to implement logic to find which building this device belongs to
+                # For now, use the first building
+                building_id = building.get("id")
+                break
+                
+            if not building_id:
+                _LOGGER.error("No building ID found for device %s", self._device_id)
+                return
+            
+            # Create device helper and set temperature based on current mode
+            from pysensorlinx.sensorlinx import SensorlinxDevice, Temperature
+            device_helper = SensorlinxDevice(self.coordinator.sensorlinx, building_id, self._device_id)
+            
+            # Convert temperature to Fahrenheit (SensorLinx uses Fahrenheit)
+            temp_f = Temperature(temperature, "C").to_fahrenheit() if self.temperature_unit == UnitOfTemperature.CELSIUS else temperature
+            temp_obj = Temperature(temp_f, "F")
+            
+            hvac_mode = self.hvac_mode
+            if hvac_mode == HVACMode.HEAT:
+                await device_helper.set_hot_tank_target_temp(temp_obj)
+            elif hvac_mode == HVACMode.COOL:
+                await device_helper.set_cold_tank_target_temp(temp_obj)
+            else:
+                # Auto mode - set both hot and cool tank targets
+                await device_helper.set_hot_tank_target_temp(temp_obj)
+            
             await self.coordinator.async_request_refresh()
         except Exception as exc:
             _LOGGER.error("Failed to set temperature for %s: %s", self._device_id, exc)
@@ -179,11 +224,31 @@ class SensorLinxClimate(CoordinatorEntity, ClimateEntity):
     async def async_set_hvac_mode(self, hvac_mode: HVACMode) -> None:
         """Set new target hvac mode."""
         try:
-            await self.coordinator.sensorlinx.set_device_parameter(
-                self._device_id,
-                "hvac_mode",
-                hvac_mode.value
-            )
+            # Get building info from coordinator data
+            if not self.coordinator.data or "devices" not in self.coordinator.data:
+                _LOGGER.error("No coordinator data available")
+                return
+                
+            device = self.coordinator.data["devices"].get(self._device_id)
+            if not device:
+                _LOGGER.error("Device %s not found in coordinator data", self._device_id)
+                return
+            
+            # Find the building ID for this device
+            building_id = None
+            for building in self.coordinator.data.get("buildings", []):
+                building_id = building.get("id")
+                break
+                
+            if not building_id:
+                _LOGGER.error("No building ID found for device %s", self._device_id)
+                return
+            
+            # Create device helper and set HVAC mode
+            from pysensorlinx.sensorlinx import SensorlinxDevice
+            device_helper = SensorlinxDevice(self.coordinator.sensorlinx, building_id, self._device_id)
+            
+            await device_helper.set_hvac_mode_priority(hvac_mode.value)
             await self.coordinator.async_request_refresh()
         except Exception as exc:
             _LOGGER.error("Failed to set HVAC mode for %s: %s", self._device_id, exc)

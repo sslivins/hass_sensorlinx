@@ -21,29 +21,24 @@ _LOGGER = logging.getLogger(__name__)
 
 BINARY_SENSOR_DESCRIPTIONS: tuple[BinarySensorEntityDescription, ...] = (
     BinarySensorEntityDescription(
-        key="online",
-        name="Online",
-        device_class=BinarySensorDeviceClass.CONNECTIVITY,
-    ),
-    BinarySensorEntityDescription(
-        key="alarm",
-        name="Alarm",
-        device_class=BinarySensorDeviceClass.PROBLEM,
-    ),
-    BinarySensorEntityDescription(
-        key="maintenance",
-        name="Maintenance Mode",
-        device_class=BinarySensorDeviceClass.PROBLEM,
-    ),
-    BinarySensorEntityDescription(
-        key="heating",
-        name="Heating",
+        key="permanent_heat_demand",
+        name="Permanent Heat Demand",
         device_class=BinarySensorDeviceClass.HEAT,
     ),
     BinarySensorEntityDescription(
-        key="cooling",
-        name="Cooling",
+        key="permanent_cool_demand", 
+        name="Permanent Cool Demand",
         device_class=BinarySensorDeviceClass.COLD,
+    ),
+    BinarySensorEntityDescription(
+        key="warm_weather_shutdown",
+        name="Warm Weather Shutdown",
+        device_class=BinarySensorDeviceClass.PROBLEM,
+    ),
+    BinarySensorEntityDescription(
+        key="cold_weather_shutdown",
+        name="Cold Weather Shutdown", 
+        device_class=BinarySensorDeviceClass.PROBLEM,
     ),
 )
 
@@ -58,10 +53,21 @@ async def async_setup_entry(
     
     entities = []
     
+    _LOGGER.debug("Setting up binary sensor platform")
+    _LOGGER.debug("Coordinator data: %s", coordinator.data)
+    
     if coordinator.data and "devices" in coordinator.data:
-        for device_id, device in coordinator.data["devices"].items():
+        devices = coordinator.data["devices"]
+        _LOGGER.debug("Found %d devices in coordinator data", len(devices))
+        
+        for device_id, device in devices.items():
+            _LOGGER.debug("Processing device %s: %s", device_id, device)
+            device_parameters = device.get("parameters", {})
+            _LOGGER.debug("Device %s parameters: %s", device_id, device_parameters)
+            
             for description in BINARY_SENSOR_DESCRIPTIONS:
-                if description.key in device.get("parameters", {}):
+                if description.key in device_parameters:
+                    _LOGGER.debug("Creating binary sensor %s for device %s", description.key, device_id)
                     entities.append(
                         SensorLinxBinarySensor(
                             coordinator,
@@ -70,7 +76,12 @@ async def async_setup_entry(
                             device,
                         )
                     )
+                else:
+                    _LOGGER.debug("Device %s does not have parameter %s", device_id, description.key)
+    else:
+        _LOGGER.debug("No coordinator data or devices found")
     
+    _LOGGER.debug("Adding %d binary sensor entities", len(entities))
     async_add_entities(entities)
 
 
@@ -115,6 +126,18 @@ class SensorLinxBinarySensor(CoordinatorEntity, BinarySensorEntity):
         parameters = device.get("parameters", {})
         value = parameters.get(self.entity_description.key)
         
+        if value is None:
+            return None
+        
+        # Handle different parameter types
+        if self.entity_description.key in ["permanent_heat_demand", "permanent_cool_demand"]:
+            # These are boolean values from the API
+            return bool(value)
+        elif self.entity_description.key in ["warm_weather_shutdown", "cold_weather_shutdown"]:
+            # These are temperature values - consider "on" if not disabled (32°F means disabled)
+            return value != 32 if isinstance(value, (int, float)) else False
+        
+        # Default handling
         if isinstance(value, bool):
             return value
         elif isinstance(value, (int, float)):

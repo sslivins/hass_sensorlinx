@@ -79,7 +79,7 @@ async def validate_input(hass, data: dict[str, Any]) -> dict[str, Any]:
         await sensorlinx.login(data[CONF_USERNAME], data[CONF_PASSWORD])
         
         # Get user profile to confirm connection
-        profile = await sensorlinx.get_user_profile()
+        profile = await sensorlinx.get_profile()
         
         if not profile:
             raise InvalidAuth

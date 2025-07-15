@@ -1,12 +1,12 @@
 {
   "domain": "sensorlinx",
   "name": "SensorLinx",
-  "codeowners": ["@your_username"],
+  "codeowners": ["@sslivins"],
   "config_flow": true,
   "dependencies": [],
-  "documentation": "https://github.com/your_username/hass_sensorlinx",
+  "documentation": "https://github.com/sslivins/hass_sensorlinx",
   "iot_class": "cloud_polling",
-  "issue_tracker": "https://github.com/your_username/hass_sensorlinx/issues",
+  "issue_tracker": "https://github.com/sslivins/hass_sensorlinx/issues",
   "requirements": ["pysensorlinx==0.1.1"],
   "version": "1.0.0"
 }

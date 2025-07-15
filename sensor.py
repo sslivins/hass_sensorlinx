@@ -28,40 +28,79 @@ from .coordinator import SensorLinxDataUpdateCoordinator
 _LOGGER = logging.getLogger(__name__)
 
 SENSOR_DESCRIPTIONS: tuple[SensorEntityDescription, ...] = (
+    # Temperature sensors - these will be dynamically created based on available temperature sensors
     SensorEntityDescription(
-        key="temperature",
-        name="Temperature",
-        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        key="temperature_hot_tank",
+        name="Hot Tank Temperature",
+        native_unit_of_measurement=UnitOfTemperature.FAHRENHEIT,
         device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
     ),
     SensorEntityDescription(
-        key="humidity",
-        name="Humidity",
-        native_unit_of_measurement=PERCENTAGE,
-        device_class=SensorDeviceClass.HUMIDITY,
+        key="temperature_cold_tank", 
+        name="Cold Tank Temperature",
+        native_unit_of_measurement=UnitOfTemperature.FAHRENHEIT,
+        device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
     ),
     SensorEntityDescription(
-        key="pressure",
-        name="Pressure",
-        native_unit_of_measurement=UnitOfPressure.HPA,
-        device_class=SensorDeviceClass.PRESSURE,
+        key="temperature_outdoor",
+        name="Outdoor Temperature", 
+        native_unit_of_measurement=UnitOfTemperature.FAHRENHEIT,
+        device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
     ),
     SensorEntityDescription(
-        key="energy",
-        name="Energy",
-        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
-        device_class=SensorDeviceClass.ENERGY,
-        state_class=SensorStateClass.TOTAL_INCREASING,
+        key="target_temperature_hot_tank",
+        name="Hot Tank Target Temperature",
+        native_unit_of_measurement=UnitOfTemperature.FAHRENHEIT,
+        device_class=SensorDeviceClass.TEMPERATURE,
+        state_class=SensorStateClass.MEASUREMENT,
     ),
     SensorEntityDescription(
-        key="power",
-        name="Power",
-        native_unit_of_measurement=UnitOfPower.WATT,
-        device_class=SensorDeviceClass.POWER,
+        key="target_temperature_cold_tank",
+        name="Cold Tank Target Temperature", 
+        native_unit_of_measurement=UnitOfTemperature.FAHRENHEIT,
+        device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
+    ),
+    SensorEntityDescription(
+        key="hot_tank_min_temp",
+        name="Hot Tank Minimum Temperature",
+        native_unit_of_measurement=UnitOfTemperature.FAHRENHEIT,
+        device_class=SensorDeviceClass.TEMPERATURE,
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    SensorEntityDescription(
+        key="hot_tank_max_temp", 
+        name="Hot Tank Maximum Temperature",
+        native_unit_of_measurement=UnitOfTemperature.FAHRENHEIT,
+        device_class=SensorDeviceClass.TEMPERATURE,
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    SensorEntityDescription(
+        key="cold_tank_min_temp",
+        name="Cold Tank Minimum Temperature",
+        native_unit_of_measurement=UnitOfTemperature.FAHRENHEIT,
+        device_class=SensorDeviceClass.TEMPERATURE,
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    SensorEntityDescription(
+        key="cold_tank_max_temp",
+        name="Cold Tank Maximum Temperature", 
+        native_unit_of_measurement=UnitOfTemperature.FAHRENHEIT,
+        device_class=SensorDeviceClass.TEMPERATURE,
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    SensorEntityDescription(
+        key="firmware_version",
+        name="Firmware Version",
+        device_class=SensorDeviceClass.ENUM,
+    ),
+    SensorEntityDescription(
+        key="device_type",
+        name="Device Type",
+        device_class=SensorDeviceClass.ENUM,
     ),
 )
 
@@ -76,10 +115,21 @@ async def async_setup_entry(
     
     entities = []
     
+    _LOGGER.debug("Setting up sensor platform")
+    _LOGGER.debug("Coordinator data: %s", coordinator.data)
+    
     if coordinator.data and "devices" in coordinator.data:
-        for device_id, device in coordinator.data["devices"].items():
+        devices = coordinator.data["devices"]
+        _LOGGER.debug("Found %d devices in coordinator data", len(devices))
+        
+        for device_id, device in devices.items():
+            _LOGGER.debug("Processing device %s: %s", device_id, device)
+            device_parameters = device.get("parameters", {})
+            _LOGGER.debug("Device %s parameters: %s", device_id, device_parameters)
+            
             for description in SENSOR_DESCRIPTIONS:
-                if description.key in device.get("parameters", {}):
+                if description.key in device_parameters:
+                    _LOGGER.debug("Creating sensor %s for device %s", description.key, device_id)
                     entities.append(
                         SensorLinxSensor(
                             coordinator,
@@ -88,7 +138,12 @@ async def async_setup_entry(
                             device,
                         )
                     )
+                else:
+                    _LOGGER.debug("Device %s does not have parameter %s", device_id, description.key)
+    else:
+        _LOGGER.debug("No coordinator data or devices found")
     
+    _LOGGER.debug("Adding %d sensor entities", len(entities))
     async_add_entities(entities)
 
 
